@@ -2,14 +2,14 @@ import * as R from 'ramda'
 
 export interface OAuthStateRecord {
   readonly codeVerifier: string
-  readonly supabaseUserId: string
+  readonly supabaseUserId: string | null
   readonly createdAt: number
 }
 
 const TTL_MS = 10 * 60 * 1000 // 10 minutes
 
 export interface StateStore {
-  readonly put: (state: string, codeVerifier: string, supabaseUserId: string) => void
+  readonly put: (state: string, codeVerifier: string, supabaseUserId: string | null) => void
   readonly take: (state: string) => OAuthStateRecord | null
   readonly size: () => number
 }

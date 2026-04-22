@@ -34,6 +34,20 @@ export interface RouterDeps {
 const randomState = (): string =>
   crypto.randomBytes(16).toString('base64url')
 
+// --- GET /eve/login --------------------------------------------------------
+// Browser-accessible entry point: redirects directly to EVE SSO.
+
+const handleLogin =
+  (deps: RouterDeps) =>
+  (req: Request, res: Response): void => {
+    const state = randomState()
+    const verifier = generateCodeVerifier()
+    const challenge = codeChallengeFor(verifier)
+    deps.stateStore.put(state, verifier, null)
+    const url = buildAuthorizeUrl(deps.config.eve, { state, codeChallenge: challenge })
+    res.redirect(url)
+  }
+
 // --- POST /eve/start-binding -----------------------------------------------
 // Called by the web app (with Supabase bearer token) to kick off the EVE SSO
 // flow. Returns the EVE authorization URL; the client then redirects there.
@@ -115,7 +129,9 @@ const handleCallback =
       }
       await provisionSession(provisionDeps, character, tokens)
 
-      deps.users.bind(rec.supabaseUserId, character.characterId)
+      if (rec.supabaseUserId) {
+        deps.users.bind(rec.supabaseUserId, character.characterId)
+      }
 
       const dest = new URL('/dashboard', webAppUrl)
       dest.searchParams.set('eve_bound', 'true')
@@ -260,6 +276,7 @@ const blockPasswordAuth = (_req: Request, res: Response): void => {
 
 export const buildEveRouter = (deps: RouterDeps): Router => {
   const router = express.Router()
+  router.get('/eve/login', handleLogin(deps))
   router.post('/eve/start-binding', handleStartBinding(deps))
   router.get('/eve/callback', handleCallback(deps))
   router.get('/eve/me/ship', handleMyShip(deps))
