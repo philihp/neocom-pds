@@ -12,14 +12,14 @@ import {
   generateCodeVerifier,
   verifyAccessToken,
 } from './eve-sso.js'
-import { provisionSession, type ProvisionDeps } from './provision.js'
+import { provisionSession, resetAndLogin, type ProvisionDeps, type AdminDeps } from './provision.js'
 import {
   getCharacterShip,
   EsiError,
   EsiRateLimitedError,
   TokensInvalidatedError,
 } from './esi-client.js'
-import { extractSupabaseUser } from './supabase-auth.js'
+import { extractSupabaseUser, getSupabaseUserEmail, validateSupabasePassword } from './supabase-auth.js'
 
 export interface RouterDeps {
   readonly config: AppConfig
@@ -263,6 +263,70 @@ const handleMyShip =
     }
   }
 
+// --- POST /xrpc/com.atproto.server.createSession --------------------------
+// Intercepts the native-app login flow. The user supplies their ATProto
+// handle (or DID) and their Supabase password. We validate against Supabase,
+// then use the admin API to mint a fresh ATProto session — same as EVE SSO
+// does on each re-auth.
+
+interface CreateSessionBody {
+  readonly identifier?: unknown
+  readonly password?: unknown
+}
+
+const handleCreateSession =
+  (deps: RouterDeps) =>
+  async (req: Request, res: Response): Promise<void> => {
+    const body = req.body as CreateSessionBody
+    const identifier = typeof body.identifier === 'string' ? body.identifier : null
+    const password = typeof body.password === 'string' ? body.password : null
+
+    if (!identifier || !password) {
+      res.status(400).json({ error: 'InvalidRequest', message: 'identifier and password are required' })
+      return
+    }
+
+    // Resolve identifier (handle or DID) to a character mapping.
+    const character = identifier.startsWith('did:')
+      ? deps.characters.findByDid(identifier)
+      : deps.characters.findByHandle(identifier)
+
+    if (!character) {
+      res.status(401).json({ error: 'AuthenticationRequired', message: 'Account not found or not bound to an EVE character' })
+      return
+    }
+
+    // Find the Supabase user bound to this character.
+    const binding = deps.users.findByCharacterId(character.characterId)
+    if (!binding) {
+      res.status(401).json({ error: 'AuthenticationRequired', message: 'No Supabase account bound to this character. Please log in via the website first.' })
+      return
+    }
+
+    // Fetch their email so we can validate the password.
+    const email = await getSupabaseUserEmail(binding.supabaseUserId, deps.config.supabaseUrl, deps.config.supabaseSecretKey)
+    if (!email) {
+      res.status(500).json({ error: 'InternalError', message: 'Could not retrieve account email' })
+      return
+    }
+
+    const valid = await validateSupabasePassword(email, password, deps.config.supabaseUrl, deps.config.supabaseSecretKey)
+    if (!valid) {
+      res.status(401).json({ error: 'AuthenticationRequired', message: 'Invalid password' })
+      return
+    }
+
+    // Credentials check out — mint a fresh ATProto session via the admin reset trick.
+    const adminDeps: AdminDeps = { pdsUrl: deps.pdsUrl, adminPassword: deps.adminPassword }
+    try {
+      const session = await resetAndLogin(adminDeps, character.did)
+      res.json(session)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      res.status(500).json({ error: 'InternalError', message: msg })
+    }
+  }
+
 // --- Blocker --------------------------------------------------------------
 
 const blockPasswordAuth = (_req: Request, res: Response): void => {
@@ -281,6 +345,7 @@ export const buildEveRouter = (deps: RouterDeps): Router => {
   router.get('/eve/callback', handleCallback(deps))
   router.get('/eve/me/ship', handleMyShip(deps))
   router.get('/api/account', handleGetAccount(deps))
+  router.post('/xrpc/com.atproto.server.createSession', handleCreateSession(deps))
   return router
 }
 

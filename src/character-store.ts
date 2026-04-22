@@ -17,6 +17,7 @@ export interface CharacterMapping {
 export interface CharacterStore {
   readonly findByCharacterId: (id: number) => CharacterMapping | null
   readonly findByDid: (did: string) => CharacterMapping | null
+  readonly findByHandle: (handle: string) => CharacterMapping | null
   readonly insert: (m: Omit<CharacterMapping, 'createdAt'>) => void
   readonly updateOwner: (id: number, owner: string) => void
   readonly close: () => void
@@ -44,6 +45,10 @@ export const openCharacterStore = (dataDir: string): CharacterStore => {
     `SELECT character_id as characterId, did, handle, owner, created_at as createdAt
      FROM character_account WHERE did = ?`,
   )
+  const findByHandleStmt = db.prepare(
+    `SELECT character_id as characterId, did, handle, owner, created_at as createdAt
+     FROM character_account WHERE handle = ?`,
+  )
   const insertStmt = db.prepare(
     `INSERT INTO character_account (character_id, did, handle, owner)
      VALUES (?, ?, ?, ?)`,
@@ -57,6 +62,8 @@ export const openCharacterStore = (dataDir: string): CharacterStore => {
       (findByIdStmt.get(id) as CharacterMapping | undefined) ?? null,
     findByDid: (did) =>
       (findByDidStmt.get(did) as CharacterMapping | undefined) ?? null,
+    findByHandle: (handle) =>
+      (findByHandleStmt.get(handle) as CharacterMapping | undefined) ?? null,
     insert: ({ characterId, did, handle, owner }) => {
       insertStmt.run(characterId, did, handle, owner)
     },

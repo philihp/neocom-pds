@@ -14,10 +14,13 @@ export interface AtpSession {
   readonly refreshJwt: string
 }
 
-export interface ProvisionDeps {
+export interface AdminDeps {
   readonly pdsUrl: string
-  readonly pdsHostname: string
   readonly adminPassword: string
+}
+
+export interface ProvisionDeps extends AdminDeps {
+  readonly pdsHostname: string
   readonly characters: CharacterStore
   readonly tokens: TokenStore
   readonly eveCfg: EveConfig
@@ -77,8 +80,8 @@ const createAccount = async (
  * Reset the password for an existing account to a freshly-generated value,
  * then log in with it to mint a session. Uses the PDS admin endpoint.
  */
-const resetAndLogin = async (
-  deps: ProvisionDeps,
+export const resetAndLogin = async (
+  deps: AdminDeps,
   did: string,
 ): Promise<AtpSession> => {
   const password = generatePassword()
