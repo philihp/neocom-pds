@@ -1,8 +1,9 @@
-interface SupabaseGetUserResponse {
-  readonly id?: string
-  readonly email?: string
-  readonly message?: string // present on error
-}
+import { createClient } from '@supabase/supabase-js'
+
+const makeAdminClient = (supabaseUrl: string, supabaseSecretKey: string) =>
+  createClient(supabaseUrl, supabaseSecretKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
 
 export const extractSupabaseUser = async (
   authorizationHeader: string | undefined,
@@ -12,17 +13,14 @@ export const extractSupabaseUser = async (
   if (!authorizationHeader?.startsWith('Bearer ')) return null
   const token = authorizationHeader.slice('Bearer '.length)
 
-  const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      apikey: supabaseSecretKey,
-    },
+  const supabase = createClient(supabaseUrl, supabaseSecretKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
   })
 
-  if (!res.ok) return null
-
-  const body = (await res.json()) as SupabaseGetUserResponse
-  return body.id ?? null
+  const { data, error } = await supabase.auth.getUser(token)
+  if (error || !data.user) return null
+  return data.user.id
 }
 
 export const getSupabaseUserEmail = async (
@@ -30,15 +28,10 @@ export const getSupabaseUserEmail = async (
   supabaseUrl: string,
   supabaseSecretKey: string,
 ): Promise<string | null> => {
-  const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
-    headers: {
-      Authorization: `Bearer ${supabaseSecretKey}`,
-      apikey: supabaseSecretKey,
-    },
-  })
-  if (!res.ok) return null
-  const body = (await res.json()) as SupabaseGetUserResponse
-  return body.email ?? null
+  const supabase = makeAdminClient(supabaseUrl, supabaseSecretKey)
+  const { data, error } = await supabase.auth.admin.getUserById(userId)
+  if (error || !data.user) return null
+  return data.user.email ?? null
 }
 
 export const validateSupabasePassword = async (
@@ -47,25 +40,10 @@ export const validateSupabasePassword = async (
   supabaseUrl: string,
   supabaseSecretKey: string,
 ): Promise<boolean> => {
-  const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      // Both headers required: apikey identifies the project, Authorization
-      // with the service role key signals a trusted server call and bypasses
-      // CAPTCHA checks in GoTrue.
-      Authorization: `Bearer ${supabaseSecretKey}`,
-      apikey: supabaseSecretKey,
-    },
-    body: JSON.stringify({ email, password }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    console.error(
-      `[supabase-auth] password validation failed for ${email}: HTTP ${res.status} – ${body}`,
-    );
+  const supabase = makeAdminClient(supabaseUrl, supabaseSecretKey)
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) {
+    console.error(`[supabase-auth] password validation failed for ${email}: ${error.message}`)
   }
-
-  return res.ok;
-};
+  return !error
+}
