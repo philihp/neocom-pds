@@ -306,7 +306,10 @@ const handleCreateSession =
     // Fetch their email so we can validate the password.
     const email = await getSupabaseUserEmail(binding.supabaseUserId, deps.config.supabaseUrl, deps.config.supabaseSecretKey)
     if (!email) {
-      res.status(500).json({ error: 'InternalError', message: 'Could not retrieve account email' })
+      res.status(500).json({
+        error: "InternalError",
+        message: `Could not retrieve account email for ${binding.supabaseUserId}`,
+      });
       return
     }
 
