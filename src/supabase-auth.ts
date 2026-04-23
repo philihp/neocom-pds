@@ -45,21 +45,25 @@ export const validateSupabasePassword = async (
   email: string,
   password: string,
   supabaseUrl: string,
-  supabaseAnonKey: string,
+  // supabaseAnonKey: string,
+  supabaseSecretKey: string,
 ): Promise<boolean> => {
   const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      apikey: supabaseAnonKey,
+      "Content-Type": "application/json",
+      // Service role key in Authorization causes GoTrue to skip CAPTCHA checks
+      Authorization: `Bearer ${supabaseSecretKey}`,
     },
     body: JSON.stringify({ email, password }),
-  })
+  });
 
   if (!res.ok) {
-    const body = await res.text()
-    console.error(`[supabase-auth] password validation failed for ${email}: HTTP ${res.status} – ${body}`)
+    const body = await res.text();
+    console.error(
+      `[supabase-auth] password validation failed for ${email}: HTTP ${res.status} – ${body}`,
+    );
   }
 
-  return res.ok
-}
+  return res.ok;
+};

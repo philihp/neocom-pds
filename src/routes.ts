@@ -314,7 +314,12 @@ const handleCreateSession =
       return
     }
 
-    const valid = await validateSupabasePassword(email, password, deps.config.supabaseUrl, deps.config.supabaseAnonKey)
+    const valid = await validateSupabasePassword(
+      email,
+      password,
+      deps.config.supabaseUrl,
+      deps.config.supabaseSecretKey,
+    );
     console.log(`[createSession] password valid=${valid}`)
     if (!valid) {
       res.status(401).json({ error: 'AuthenticationRequired', message: 'Invalid password' })
