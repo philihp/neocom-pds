@@ -1,5 +1,5 @@
 import * as crypto from 'node:crypto'
-import express, { type Router, type Request, type Response } from 'express'
+import express, { type Router, type Request, type Response, type NextFunction } from 'express'
 import type { AppConfig } from './config.js'
 import type { StateStore } from './state-store.js'
 import type { CharacterStore } from './character-store.js'
@@ -332,7 +332,13 @@ const handleCreateSession =
 
 // --- Blocker --------------------------------------------------------------
 
-const blockPasswordAuth = (_req: Request, res: Response): void => {
+const blockExternalCreateAccount = (req: Request, res: Response, next: NextFunction): void => {
+  const ip = req.ip ?? req.socket.remoteAddress ?? ''
+  const isLoopback = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+  if (isLoopback) {
+    next()
+    return
+  }
   res.status(403).json({
     error: 'AuthMethodNotSupported',
     message:
@@ -354,7 +360,7 @@ export const buildEveRouter = (deps: RouterDeps): Router => {
 
 export const buildBlockerRouter = (): Router => {
   const router = express.Router()
-  router.post('/xrpc/com.atproto.server.createAccount', blockPasswordAuth)
+  router.post('/xrpc/com.atproto.server.createAccount', blockExternalCreateAccount)
   return router
 }
 
