@@ -46,10 +46,14 @@ const main = async (): Promise<void> => {
   )
 
   // Our routers were appended after the PDS's own routes (registered in PDS.create()).
-  // Move the two layers we just added to the front so they intercept first.
+  // Insert them at index 2 — after Express's built-in query (0) and init (1) layers.
+  // init is what calls setPrototypeOf(res, app.response), giving res its .status()/.json()
+  // methods. Inserting before it leaves res as a raw http.ServerResponse.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const stack = (pds.app as any)._router.stack as any[]
-  stack.unshift(stack.pop(), stack.pop())
+  const eveLayer = stack.pop()
+  const blockerLayer = stack.pop()
+  stack.splice(2, 0, eveLayer, blockerLayer)
 
   await pds.start()
   console.log(`EVE-gated PDS listening on :${appCfg.port}`)
