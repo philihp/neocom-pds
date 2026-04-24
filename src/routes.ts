@@ -276,7 +276,17 @@ interface CreateSessionBody {
 
 const handleCreateSession =
   (deps: RouterDeps) =>
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    // Internal calls (e.g. from resetAndLogin) carry a freshly-generated random
+    // password that Supabase knows nothing about. Pass them straight through to
+    // the underlying PDS handler which validates against its own password store.
+    const ip = req.ip ?? req.socket.remoteAddress ?? ''
+    const isLoopback = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+    if (isLoopback) {
+      next()
+      return
+    }
+
     const body = req.body as CreateSessionBody
     const identifier = typeof body.identifier === 'string' ? body.identifier : null
     const password = typeof body.password === 'string' ? body.password : null
