@@ -115,6 +115,54 @@ export const resetAndLogin = async (
   }
 }
 
+// Parse SQLite datetime('now') strings ("YYYY-MM-DD HH:MM:SS") or ISO strings.
+const parseCreatedAt = (raw: string): Date =>
+  new Date(raw.includes('T') ? raw : raw.replace(' ', 'T') + 'Z')
+
+const eveBirthDate = (createdAt: string): string => {
+  const d = parseCreatedAt(createdAt)
+  d.setUTCFullYear(d.getUTCFullYear() - 1898)
+  return d.toISOString()
+}
+
+const setEveProfile = async (
+  pdsUrl: string,
+  session: AtpSession,
+  char: EveCharacter,
+  createdAt: string,
+): Promise<void> => {
+  const agent = new AtpAgent({ service: pdsUrl })
+  await agent.resumeSession({
+    did: session.did,
+    handle: session.handle,
+    accessJwt: session.accessJwt,
+    refreshJwt: session.refreshJwt,
+    active: true,
+  })
+
+  const portraitRes = await fetch(
+    `https://images.evetech.net/characters/${char.characterId}/portrait?size=128`,
+  )
+  if (!portraitRes.ok) throw new Error(`EVE portrait fetch failed: ${portraitRes.status}`)
+  const portrait = Buffer.from(await portraitRes.arrayBuffer())
+
+  const blobRes = await agent.api.com.atproto.repo.uploadBlob(portrait, {
+    encoding: 'image/jpeg',
+  })
+
+  await agent.api.com.atproto.repo.putRecord({
+    repo: session.did,
+    collection: 'app.bsky.actor.profile',
+    rkey: 'self',
+    record: {
+      $type: 'app.bsky.actor.profile',
+      displayName: char.characterName,
+      avatar: blobRes.data.blob,
+      birthDate: eveBirthDate(createdAt),
+    },
+  })
+}
+
 export const provisionSession = async (
   deps: ProvisionDeps,
   char: EveCharacter,
@@ -143,9 +191,12 @@ export const provisionSession = async (
           'This account is locked and must be manually reviewed.',
       )
     }
-    // Refresh stored EVE tokens - user just completed SSO, so these are fresh.
     persistEveTokens()
-    return resetAndLogin(deps, existing.did)
+    const session = await resetAndLogin(deps, existing.did)
+    setEveProfile(deps.pdsUrl, session, char, existing.createdAt).catch((err) =>
+      console.error('setEveProfile failed for', char.characterId, err),
+    )
+    return session
   }
 
   // New character - create an account.
@@ -172,6 +223,11 @@ export const provisionSession = async (
     owner: char.owner,
   })
   persistEveTokens()
+
+  const createdAt = new Date().toISOString()
+  setEveProfile(deps.pdsUrl, created.session, char, createdAt).catch((err) =>
+    console.error('setEveProfile failed for', char.characterId, err),
+  )
 
   return created.session
 }
