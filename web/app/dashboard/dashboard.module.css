@@ -16,7 +16,8 @@
 .logo {
   font-weight: 700;
   font-size: 1.1rem;
-  color: #fff;
+  color: var(--color-accent);
+  letter-spacing: 0.02em;
 }
 
 .signOutBtn {

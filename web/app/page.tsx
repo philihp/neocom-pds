@@ -5,13 +5,13 @@ export default function LandingPage() {
   return (
     <main className={styles.main}>
       <div className={styles.hero}>
-        <h1 className={styles.title}>Neocom PDS</h1>
+        <h1 className={styles.title}>Edencom Social</h1>
         <p className={styles.tagline}>
-          Your AT Protocol Personal Data Server, forged in New Eden.
+          Capsuleer identity registry. Secured under EDENCOM authority.
         </p>
         <p className={styles.description}>
-          Create an account, connect your EVE Online pilot, and own your
-          presence on the decentralized web.
+          Register your identity on the decentralized web. Link your EVE Online
+          pilot and operate under verified EDENCOM credentials.
         </p>
         <div className={styles.actions}>
           <Link href="/signup" className={styles.btnPrimary}>

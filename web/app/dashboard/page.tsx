@@ -51,7 +51,7 @@ export default async function DashboardPage({
   return (
     <main className={styles.main}>
       <header className={styles.header}>
-        <span className={styles.logo}>Neocom PDS</span>
+        <span className={styles.logo}>Edencom Social</span>
         <form action={signOut}>
           <button type="submit" className={styles.signOutBtn}>
             Sign Out
