@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { startEveBinding, signOut } from './actions'
@@ -75,6 +76,12 @@ export default async function DashboardPage({
 
       {account.bound ? (
         <div>
+          <Image
+            src={`https://images.evetech.net/characters/${account.characterId}/portrait?size=64`}
+            alt={account.handle ?? 'Character portrait'}
+            width={64}
+            height={64}
+          />
           <dl>
             <dt>Handle</dt>
             <dd>
