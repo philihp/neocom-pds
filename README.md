@@ -122,7 +122,7 @@ curl -H "Authorization: Bearer $ATP_ACCESS_JWT" \
 ## File layout
 
 ```
-src/
+pds/
   index.ts            entry point, boots PDS + mounts routes
   config.ts           env parsing + encryption key validation
   identity.ts         EVE character types + handle slugification

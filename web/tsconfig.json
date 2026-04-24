@@ -1,12 +1,10 @@
 {
   "extends": "@tsconfig/next/tsconfig.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
     },
-    "target": "ES2017",
-    "ignoreDeprecations": "6.0"
+    "target": "ESNext"
   },
   "include": [
     "node_modules/@tsconfig/next/next-env.d.ts",

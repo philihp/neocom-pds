@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node --enable-source-maps dist/index.js",
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch pds/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
