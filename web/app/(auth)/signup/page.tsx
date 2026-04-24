@@ -43,7 +43,7 @@ export default function SignupPage() {
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
-        captchaToken,
+        // captchaToken,
       },
     })
 

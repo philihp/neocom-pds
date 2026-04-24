@@ -28,7 +28,7 @@ function LoginForm() {
       email,
       password,
       options: {
-        captchaToken: captchaToken!,
+        // captchaToken: captchaToken!,
       },
     })
 
