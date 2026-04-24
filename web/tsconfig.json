@@ -3,11 +3,10 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     },
-    "target": "ES2017"
+    "target": "ES2017",
+    "ignoreDeprecations": "6.0"
   },
   "include": [
     "node_modules/@tsconfig/next/next-env.d.ts",
