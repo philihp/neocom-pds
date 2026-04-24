@@ -15,5 +15,5 @@
     "forceConsistentCasingInFileNames": true,
     "noUncheckedIndexedAccess": true
   },
-  "include": ["pds/**/*"]
+  "include": ["src/**/*"]
 }
