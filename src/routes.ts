@@ -367,8 +367,26 @@ const blockExternalCreateAccount = (req: Request, res: Response, next: NextFunct
   })
 }
 
+// --- GET /.well-known/atproto-did -------------------------------------------
+// Handle verification for subdomain handles (e.g. pilot.pds-hostname).
+// Bluesky resolves a handle by fetching https://<handle>/.well-known/atproto-did
+// and expecting the bare DID back. Requires wildcard DNS *.pds-hostname → this
+// server; the Host header then tells us which character is being looked up.
+
+const handleAtprotoWellKnown =
+  (deps: RouterDeps) =>
+  (req: Request, res: Response, next: NextFunction): void => {
+    const character = deps.characters.findByHandle(req.hostname)
+    if (!character) {
+      next()
+      return
+    }
+    res.type('text/plain').send(character.did)
+  }
+
 export const buildEveRouter = (deps: RouterDeps): Router => {
   const router = express.Router()
+  router.get('/.well-known/atproto-did', handleAtprotoWellKnown(deps))
   router.get('/eve/login', handleLogin(deps))
   router.post('/eve/start-binding', handleStartBinding(deps))
   router.get('/eve/callback', handleCallback(deps))

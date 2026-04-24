@@ -14,6 +14,7 @@ const main = async (): Promise<void> => {
   const appCfg = loadConfig()
   // Sync resolved port into PDS_PORT so @atproto/pds binds to the same port
   process.env.PDS_PORT = String(appCfg.port)
+  console.log(`${process.env.WEB_APP_URL}`);
 
   const dataDir = process.env.PDS_DATA_DIRECTORY ?? './data'
   fs.mkdirSync(dataDir, { recursive: true })
