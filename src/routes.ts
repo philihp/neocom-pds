@@ -12,7 +12,7 @@ import {
   generateCodeVerifier,
   verifyAccessToken,
 } from './eve-sso.js'
-import { provisionSession, resetAndLogin, type ProvisionDeps, type AdminDeps } from './provision.js'
+import { provisionSession, resetAndLogin, updateHandleForDid, type ProvisionDeps, type AdminDeps } from './provision.js'
 import {
   getCharacterShip,
   EsiError,
@@ -77,6 +77,51 @@ const handleStartBinding =
     res.json({ url })
   }
 
+// --- POST /eve/start-handle-change -------------------------------------------
+// Web-only endpoint. The user provides a desired new ATProto handle; we store
+// the intent in the OAuth state and kick off EVE SSO to confirm their identity.
+// The actual handle update happens in /eve/callback once SSO succeeds.
+
+interface StartHandleChangeBody {
+  readonly handle?: unknown
+}
+
+const handleStartHandleChange =
+  (deps: RouterDeps) =>
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = await extractSupabaseUser(
+      req.headers.authorization,
+      deps.config.supabaseUrl,
+      deps.config.supabaseSecretKey,
+    )
+    if (!userId) {
+      res.status(401).json({ error: 'Missing or invalid authorization' })
+      return
+    }
+
+    const body = req.body as StartHandleChangeBody
+    const newHandle = typeof body.handle === 'string' ? body.handle.trim() : null
+    if (!newHandle) {
+      res.status(400).json({ error: 'InvalidRequest', message: 'handle is required' })
+      return
+    }
+
+    // Verify the user already has a bound character — handle changes only make
+    // sense for existing accounts.
+    const binding = deps.users.findByUserId(userId)
+    if (!binding) {
+      res.status(400).json({ error: 'NotBound', message: 'No EVE character bound to this account. Complete onboarding first.' })
+      return
+    }
+
+    const state = randomState()
+    const verifier = generateCodeVerifier()
+    const challenge = codeChallengeFor(verifier)
+    deps.stateStore.put(state, verifier, userId, newHandle)
+    const url = buildAuthorizeUrl(deps.config.eve, { state, codeChallenge: challenge })
+    res.json({ url })
+  }
+
 // --- GET /eve/callback --------------------------------------------------------
 
 const handleCallback =
@@ -119,6 +164,28 @@ const handleCallback =
         deps.config.eve,
         tokens.access_token,
       )
+
+      const adminDeps: AdminDeps = { pdsUrl: deps.pdsUrl, adminPassword: deps.adminPassword }
+
+      if (rec.newHandle) {
+        // Handle-change flow: confirm the user still owns this character, then
+        // update the ATProto handle. We require the character to already exist.
+        const existing = deps.characters.findByCharacterId(character.characterId)
+        if (!existing) {
+          throw new Error('No existing account found for this EVE character. Complete onboarding first.')
+        }
+        if (existing.owner !== character.owner) {
+          throw new Error('EVE character appears to have changed ownership. Handle change denied.')
+        }
+
+        await updateHandleForDid(adminDeps, existing.did, rec.newHandle)
+        deps.characters.updateHandle(character.characterId, rec.newHandle)
+
+        const dest = new URL('/dashboard', webAppUrl)
+        dest.searchParams.set('handle_changed', 'true')
+        res.redirect(dest.toString())
+        return
+      }
 
       const provisionDeps: ProvisionDeps = {
         pdsUrl: deps.pdsUrl,
@@ -354,20 +421,17 @@ const handleCreateSession =
 
 // --- Blocker --------------------------------------------------------------
 
-const blockExternalCreateAccount = (req: Request, res: Response, next: NextFunction): void => {
-  const ip = req.ip ?? req.socket.remoteAddress ?? ''
-  const isLoopback = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
-  if (isLoopback) {
-    next()
-    return
+const blockExternal =
+  (message: string) =>
+  (req: Request, res: Response, next: NextFunction): void => {
+    const ip = req.ip ?? req.socket.remoteAddress ?? ''
+    const isLoopback = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
+    if (isLoopback) {
+      next()
+      return
+    }
+    res.status(403).json({ error: 'AuthMethodNotSupported', message })
   }
-  res.status(403).json({
-    error: 'AuthMethodNotSupported',
-    message:
-      'This PDS uses EVE Online SSO exclusively. ' +
-      'Please sign up at the website and bind your EVE character there.',
-  })
-}
 
 // --- GET /.well-known/atproto-did -------------------------------------------
 // Handle verification for subdomain handles (e.g. pilot.pds-hostname).
@@ -390,7 +454,8 @@ export const buildEveRouter = (deps: RouterDeps): Router => {
   const router = express.Router()
   router.get('/.well-known/atproto-did', handleAtprotoWellKnown(deps))
   router.get('/eve/login', handleLogin(deps))
-  router.post('/eve/start-binding', handleStartBinding(deps))
+  router.post('/eve/start-binding', express.json(), handleStartBinding(deps))
+  router.post('/eve/start-handle-change', express.json(), handleStartHandleChange(deps))
   router.get('/eve/callback', handleCallback(deps))
   router.get('/eve/me/ship', handleMyShip(deps))
   router.get('/api/account', handleGetAccount(deps))
@@ -400,7 +465,20 @@ export const buildEveRouter = (deps: RouterDeps): Router => {
 
 export const buildBlockerRouter = (): Router => {
   const router = express.Router()
-  router.post('/xrpc/com.atproto.server.createAccount', blockExternalCreateAccount)
+  router.post(
+    '/xrpc/com.atproto.server.createAccount',
+    blockExternal(
+      'This PDS uses EVE Online SSO exclusively. ' +
+      'Please sign up at the website and bind your EVE character there.',
+    ),
+  )
+  router.post(
+    '/xrpc/com.atproto.identity.updateHandle',
+    blockExternal(
+      'Handle changes must be done through the website. ' +
+      'Visit the dashboard and use the "Change Username" flow to re-authenticate via EVE Online SSO.',
+    ),
+  )
   return router
 }
 

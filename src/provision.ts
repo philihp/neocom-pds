@@ -164,6 +164,27 @@ const setEveProfile = async (
   })
 }
 
+/**
+ * Update the ATProto handle for an existing account. Uses admin password-reset
+ * to obtain a live session, then calls identity.updateHandle on behalf of the user.
+ */
+export const updateHandleForDid = async (
+  deps: AdminDeps,
+  did: string,
+  newHandle: string,
+): Promise<void> => {
+  const session = await resetAndLogin(deps, did)
+  const agent = new AtpAgent({ service: deps.pdsUrl })
+  await agent.resumeSession({
+    did: session.did,
+    handle: session.handle,
+    accessJwt: session.accessJwt,
+    refreshJwt: session.refreshJwt,
+    active: true,
+  })
+  await agent.api.com.atproto.identity.updateHandle({ handle: newHandle })
+}
+
 export const provisionSession = async (
   deps: ProvisionDeps,
   char: EveCharacter,
