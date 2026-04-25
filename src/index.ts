@@ -8,7 +8,12 @@ import { openCharacterStore } from './character-store.js'
 import { openTokenStore } from './token-store.js'
 import { openUserStore } from './user-store.js'
 import { createStateStore } from './state-store.js'
-import { buildEveRouter, buildBlockerRouter, buildDebugRouter } from './routes.js'
+import {
+  buildEveRouter,
+  buildBlockerRouter,
+  buildDebugRouter,
+  RouterDeps,
+} from "./routes.js";
 
 const main = async (): Promise<void> => {
   const appCfg = loadConfig()
@@ -34,15 +39,16 @@ const main = async (): Promise<void> => {
   if (!adminPassword) throw new Error('PDS_ADMIN_PASSWORD required')
 
   pds.app.use(buildBlockerRouter())
-  const routerDeps = {
+  const routerDeps: RouterDeps = {
     config: appCfg,
     stateStore,
     characters,
     tokens,
     users,
     pdsUrl,
+    pdsServiceHandleDomains: appCfg.serviceHandleDomains,
     adminPassword,
-  }
+  };
   pds.app.use(buildEveRouter(routerDeps))
   pds.app.use(buildDebugRouter(routerDeps))
 

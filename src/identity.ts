@@ -28,16 +28,16 @@ export const slugifyCharacterName: (name: string) => string = R.pipe(
 )
 
 export const handleFor = R.curry(
-  (pdsHostname: string, name: string): string =>
-    `${slugifyCharacterName(name)}.${pdsHostname}`,
-)
+  (pdsServiceLevelDomains: string, name: string): string =>
+    `${slugifyCharacterName(name)}${pdsServiceLevelDomains}`,
+);
 
 // Fallback if two characters slugify to the same label - append numeric ID.
 export const handleForWithId = R.curry(
-  (pdsHostname: string, char: EveCharacter): string => {
-    const base = slugifyCharacterName(char.characterName)
-    const maxBase = 63 - String(char.characterId).length - 1
-    const truncated = base.slice(0, maxBase).replace(/-+$/, '')
-    return `${truncated}-${char.characterId}.${pdsHostname}`
+  (pdsServiceLevelDomains: string, char: EveCharacter): string => {
+    const base = slugifyCharacterName(char.characterName);
+    const maxBase = 63 - String(char.characterId).length - 1;
+    const truncated = base.slice(0, maxBase).replace(/-+$/, "");
+    return `${truncated}-${char.characterId}${pdsServiceLevelDomains}`;
   },
-)
+);

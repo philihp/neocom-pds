@@ -20,10 +20,11 @@ export interface AdminDeps {
 }
 
 export interface ProvisionDeps extends AdminDeps {
-  readonly pdsHostname: string
-  readonly characters: CharacterStore
-  readonly tokens: TokenStore
-  readonly eveCfg: EveConfig
+  readonly pdsHostname: string;
+  readonly pdsServiceHandleDomains: string;
+  readonly characters: CharacterStore;
+  readonly tokens: TokenStore;
+  readonly eveCfg: EveConfig;
 }
 
 // EVE SSO is the sole credential, but the PDS still wants a password field
@@ -200,7 +201,10 @@ export const provisionSession = async (
   }
 
   // New character - create an account.
-  const primaryHandle = handleFor(deps.pdsHostname, char.characterName)
+  const primaryHandle = handleFor(
+    deps.pdsServiceHandleDomains,
+    char.characterName,
+  );
   console.log({
     primaryHandle,
     pdsHostname: deps.pdsHostname,
@@ -214,7 +218,7 @@ export const provisionSession = async (
     // On handle collision, fall back to disambiguated form.
     const msg = err instanceof Error ? err.message : String(err)
     if (/handle/i.test(msg) && /taken|unavailable|already/i.test(msg)) {
-      handle = handleForWithId(deps.pdsHostname, char)
+      handle = handleForWithId(deps.pdsServiceHandleDomains, char);
       created = await createAccount(deps, char, handle)
     } else {
       throw err

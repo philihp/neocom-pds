@@ -22,13 +22,14 @@ import {
 import { extractSupabaseUser, getSupabaseUserEmail, validateSupabasePassword } from './supabase-auth.js'
 
 export interface RouterDeps {
-  readonly config: AppConfig
-  readonly stateStore: StateStore
-  readonly characters: CharacterStore
-  readonly tokens: TokenStore
-  readonly users: UserStore
-  readonly pdsUrl: string
-  readonly adminPassword: string
+  readonly config: AppConfig;
+  readonly stateStore: StateStore;
+  readonly characters: CharacterStore;
+  readonly tokens: TokenStore;
+  readonly users: UserStore;
+  readonly pdsUrl: string;
+  readonly pdsServiceHandleDomains: string;
+  readonly adminPassword: string;
 }
 
 const randomState = (): string =>
@@ -121,12 +122,13 @@ const handleCallback =
 
       const provisionDeps: ProvisionDeps = {
         pdsUrl: deps.pdsUrl,
+        pdsServiceHandleDomains: deps.pdsServiceHandleDomains,
         pdsHostname: deps.config.hostname,
         adminPassword: deps.adminPassword,
         characters: deps.characters,
         tokens: deps.tokens,
         eveCfg: deps.config.eve,
-      }
+      };
       await provisionSession(provisionDeps, character, tokens)
 
       if (rec.supabaseUserId) {

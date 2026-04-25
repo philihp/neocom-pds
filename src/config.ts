@@ -9,14 +9,15 @@ export interface EveConfig {
 }
 
 export interface AppConfig {
-  readonly hostname: string
-  readonly port: number
-  readonly eve: EveConfig
-  readonly tokenEncryptionKey: Buffer
-  readonly supabaseUrl: string
-  readonly supabaseAnonKey: string
-  readonly supabaseSecretKey: string
-  readonly webAppUrl: string
+  readonly hostname: string;
+  readonly serviceHandleDomains: string;
+  readonly port: number;
+  readonly eve: EveConfig;
+  readonly tokenEncryptionKey: Buffer;
+  readonly supabaseUrl: string;
+  readonly supabaseAnonKey: string;
+  readonly supabaseSecretKey: string;
+  readonly webAppUrl: string;
 }
 
 const required = (key: string): string => {
@@ -43,6 +44,8 @@ const parseEncryptionKey = (b64: string): Buffer => {
 
 export const loadConfig = (): AppConfig => ({
   hostname: required("PDS_HOSTNAME"),
+  serviceHandleDomains:
+    process.env.PDS_SERVICE_HANDLE_DOMAINS ?? `.${process.env.PDS_HOSTNAME}`,
   port: Number(process.env.PDS_PORT || process.env.PORT || "2583"),
   eve: {
     clientId: required("EVE_CLIENT_ID"),
