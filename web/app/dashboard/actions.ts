@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { slugifyCharacterName } from '@edencom/character-slug'
 
 export const startEveBinding = async () => {
   const supabase = await createClient()
@@ -71,12 +72,16 @@ export const completeAccount = async (formData: FormData) => {
   if (!accountRes.ok) {
     redirect('/dashboard?account_error=Could+not+verify+EVE+binding')
   }
-  const account = (await accountRes.json()) as { bound: boolean; characterId?: number }
-  if (!account.bound || !account.characterId) {
+  const account = (await accountRes.json()) as {
+    bound: boolean
+    characterId?: number
+    characterName?: string
+  }
+  if (!account.bound || !account.characterId || !account.characterName) {
     redirect('/dashboard?account_error=Link+your+EVE+character+first')
   }
 
-  const email = `eve-${account.characterId}@edencom.link`
+  const email = `${slugifyCharacterName(account.characterName)}@edencom.link`
 
   const { error } = await supabase.auth.updateUser({ email, password })
   if (error) {

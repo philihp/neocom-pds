@@ -7,11 +7,12 @@ import * as fs from 'node:fs'
 // the mapping from EVE character -> atproto DID on our side.
 
 export interface CharacterMapping {
-  readonly characterId: number
-  readonly did: string
-  readonly handle: string
-  readonly owner: string // EVE owner hash - detects character transfers
-  readonly createdAt: string
+  readonly characterId: number;
+  readonly characterName: string;
+  readonly did: string;
+  readonly handle: string;
+  readonly owner: string; // EVE owner hash - detects character transfers
+  readonly createdAt: string;
 }
 
 export interface CharacterStore {
@@ -31,30 +32,39 @@ export const openCharacterStore = (dataDir: string): CharacterStore => {
   db.pragma('journal_mode = WAL')
   db.exec(`
     CREATE TABLE IF NOT EXISTS character_account (
-      character_id INTEGER PRIMARY KEY,
-      did          TEXT NOT NULL UNIQUE,
-      handle       TEXT NOT NULL,
-      owner        TEXT NOT NULL,
-      created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+      character_id   INTEGER PRIMARY KEY,
+      character_name TEXT NOT NULL DEFAULT '',
+      did            TEXT NOT NULL UNIQUE,
+      handle         TEXT NOT NULL,
+      owner          TEXT NOT NULL,
+      created_at     TEXT NOT NULL DEFAULT (datetime('now'))
     )
-  `)
+  `);
+  // Migration: add character_name to existing databases that predate this column.
+  try {
+    db.exec(
+      `ALTER TABLE character_account ADD COLUMN character_name TEXT NOT NULL DEFAULT ''`,
+    );
+  } catch {
+    /* already exists */
+  }
 
   const findByIdStmt = db.prepare(
-    `SELECT character_id as characterId, did, handle, owner, created_at as createdAt
+    `SELECT character_id as characterId, character_name as characterName, did, handle, owner, created_at as createdAt
      FROM character_account WHERE character_id = ?`,
-  )
+  );
   const findByDidStmt = db.prepare(
-    `SELECT character_id as characterId, did, handle, owner, created_at as createdAt
+    `SELECT character_id as characterId, character_name as characterName, did, handle, owner, created_at as createdAt
      FROM character_account WHERE did = ?`,
-  )
+  );
   const findByHandleStmt = db.prepare(
-    `SELECT character_id as characterId, did, handle, owner, created_at as createdAt
+    `SELECT character_id as characterId, character_name as characterName, did, handle, owner, created_at as createdAt
      FROM character_account WHERE handle = ?`,
-  )
+  );
   const insertStmt = db.prepare(
-    `INSERT INTO character_account (character_id, did, handle, owner)
-     VALUES (?, ?, ?, ?)`,
-  )
+    `INSERT INTO character_account (character_id, character_name, did, handle, owner)
+     VALUES (?, ?, ?, ?, ?)`,
+  );
   const updateOwnerStmt = db.prepare(
     `UPDATE character_account SET owner = ? WHERE character_id = ?`,
   )
@@ -62,9 +72,9 @@ export const openCharacterStore = (dataDir: string): CharacterStore => {
     `UPDATE character_account SET handle = ? WHERE character_id = ?`,
   )
   const listAllStmt = db.prepare(
-    `SELECT character_id as characterId, did, handle, owner, created_at as createdAt
+    `SELECT character_id as characterId, character_name as characterName, did, handle, owner, created_at as createdAt
      FROM character_account ORDER BY created_at`,
-  )
+  );
 
   return {
     findByCharacterId: (id) =>
@@ -74,15 +84,15 @@ export const openCharacterStore = (dataDir: string): CharacterStore => {
     findByHandle: (handle) =>
       (findByHandleStmt.get(handle) as CharacterMapping | undefined) ?? null,
     listAll: () => listAllStmt.all() as CharacterMapping[],
-    insert: ({ characterId, did, handle, owner }) => {
-      insertStmt.run(characterId, did, handle, owner)
+    insert: ({ characterId, characterName, did, handle, owner }) => {
+      insertStmt.run(characterId, characterName, did, handle, owner);
     },
     updateOwner: (id, owner) => {
-      updateOwnerStmt.run(owner, id)
+      updateOwnerStmt.run(owner, id);
     },
     updateHandle: (id, handle) => {
-      updateHandleStmt.run(handle, id)
+      updateHandleStmt.run(handle, id);
     },
     close: () => db.close(),
-  }
+  };
 }

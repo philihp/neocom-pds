@@ -244,9 +244,10 @@ const handleGetAccount =
     res.json({
       bound: true,
       characterId: character.characterId,
+      characterName: character.characterName,
       handle: character.handle,
       did: character.did,
-    })
+    });
   }
 
 // --- GET /eve/me/ship (demo ESI call) -----------------------------------------

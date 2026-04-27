@@ -253,10 +253,11 @@ export const provisionSession = async (
 
   deps.characters.insert({
     characterId: char.characterId,
+    characterName: char.characterName,
     did: created.session.did,
     handle: created.session.handle,
     owner: char.owner,
-  })
+  });
   persistEveTokens()
 
   const createdAt = new Date().toISOString()
