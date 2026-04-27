@@ -44,7 +44,7 @@ const errorLimitIsHealthy = (): boolean => {
 // --- User-Agent -----------------------------------------------------------
 
 const buildUserAgent = (cfg: EveConfig): string =>
-  `eve-pds/0.1.0 (${cfg.contactEmail}; +https://github.com/) atproto-pds/eve-sso`
+  `eve-pds/0.1.0 (${cfg.contactEmail}; +https://edencom.link/) atproto-pds/eve-sso`;
 
 // --- Token freshness ------------------------------------------------------
 

@@ -142,8 +142,8 @@ const setEveProfile = async (
   })
 
   const portraitRes = await fetch(
-    `https://images.evetech.net/characters/${char.characterId}/portrait?size=128`,
-  )
+    `https://images.evetech.net/characters/${char.characterId}/portrait?size=512`,
+  );
   if (!portraitRes.ok) throw new Error(`EVE portrait fetch failed: ${portraitRes.status}`)
   const portrait = Buffer.from(await portraitRes.arrayBuffer())
 

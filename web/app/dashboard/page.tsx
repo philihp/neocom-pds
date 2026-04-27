@@ -78,10 +78,10 @@ export default async function DashboardPage({
       {account.bound ? (
         <div>
           <Image
-            src={`https://images.evetech.net/characters/${account.characterId}/portrait?size=64`}
+            src={`https://images.evetech.net/characters/${account.characterId}/portrait?size=128`}
             alt={account.handle ?? 'Character portrait'}
-            width={64}
-            height={64}
+            width={128}
+            height={128}
           />
           <dl>
             <dt>Handle</dt>
