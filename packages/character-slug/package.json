@@ -4,16 +4,21 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "tsc",
     "test": "tsx --test src/*.test.ts"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "dependencies": {
     "ramda": "^0.30.1"
   },
   "devDependencies": {
     "@types/ramda": "^0.30.2",
-    "tsx": "^4.19.0"
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
   }
 }

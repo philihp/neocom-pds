@@ -26,13 +26,13 @@ export const slugifyCharacterName: (name: string) => string = R.pipe(
   trimHyphens,
 )
 
-export const handleFor = R.curry(
+export const handleFor: (pdsServiceLevelDomains: string, name: string) => string = R.curry(
   (pdsServiceLevelDomains: string, name: string): string =>
     `${slugifyCharacterName(name)}${pdsServiceLevelDomains}`,
 )
 
 // Fallback if two characters slugify to the same label - append numeric ID.
-export const handleForWithId = R.curry(
+export const handleForWithId: (pdsServiceLevelDomains: string, char: EveCharacter) => string = R.curry(
   (pdsServiceLevelDomains: string, char: EveCharacter): string => {
     const base = slugifyCharacterName(char.characterName)
     const maxBase = 63 - String(char.characterId).length - 1
