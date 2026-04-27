@@ -35,7 +35,7 @@ function LoginForm() {
     <main>
       <h1>Sign In</h1>
       <p>
-        New here? <Link href="/signup">Create an account</Link>
+        New here? <Link href="/">Connect through EVE Online</Link>
       </p>
 
       <form onSubmit={handleSubmit}>

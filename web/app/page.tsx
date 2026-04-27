@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { startAnonymousBinding } from './actions'
 
 export default function LandingPage() {
   return (
@@ -8,26 +9,19 @@ export default function LandingPage() {
         AT Protocol capsuleer identity registery. The identities of New Eden citizens have
         been validated by the edencom.link PDS.
       </p>
-      <p>
-        [ <Link href="/signup">Create Account</Link> | <Link href="/login">Sign In</Link>{' '}
-        ]
-      </p>
-
-      <hr />
 
       <ol>
         <li>
-          <strong>
-            <Link href="/signup">Create an account</Link>
-          </strong>{' '}
-          &mdash; This is what you'll use to login to the Edencom PDS.
+          <strong>Step through the gate</strong> &mdash; Connect through EVE Online to
+          bring your capsuleer across into the real world. Your handle is forged from your
+          character&apos;s name.
         </li>
         <li>
-          <strong>Bind your pilot</strong> &mdash; Link your capsuleer identity via EVE
-          Online SSO. Your handle will be is generated from your character&apos;s name.
+          <strong>Claim your account</strong> &mdash; Once your character is linked,
+          choose a password to claim your account.
         </li>
         <li>
-          <strong>Sign in</strong> &mdash; to the Edencom PDS with your account on{' '}
+          <strong>Sign in</strong> &mdash; Connect to the Edencom PDS on{' '}
           <Link href="https://bsky.app/">Bluesky</Link> or any{' '}
           <Link href="https://techcrunch.com/2025/06/13/beyond-bluesky-these-are-the-apps-building-social-experiences-on-the-at-protocol/">
             AT Protocol client
@@ -35,6 +29,10 @@ export default function LandingPage() {
           .
         </li>
       </ol>
+
+      <form action={startAnonymousBinding}>
+        <button type="submit">Connect through EVE Online</button>
+      </form>
     </main>
   )
 }

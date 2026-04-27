@@ -31,11 +31,17 @@ export const middleware = async (request: NextRequest) => {
 
   if (!user && pathname.startsWith('/dashboard')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 
-  if (user && (pathname === '/login' || pathname === '/signup')) {
+  if (user && pathname === '/') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
+
+  if (user && !user.is_anonymous && pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
@@ -45,5 +51,5 @@ export const middleware = async (request: NextRequest) => {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/signup'],
+  matcher: ['/', '/dashboard/:path*', '/login'],
 }
