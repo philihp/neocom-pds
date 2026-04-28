@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { slugifyCharacterName } from '@edencom/character-slug'
 
 export const startEveBinding = async () => {
@@ -87,9 +88,24 @@ export const completeAccount = async (formData: FormData) => {
 
   const email = `${slugifyCharacterName(account.characterName)}@edencom.link`
 
-  const { error } = await supabase.auth.updateUser({ email, password })
-  if (error) {
-    redirect(`/dashboard?account_error=${encodeURIComponent(error.message)}`)
+  const admin = createAdminClient()
+  const { data: existingUser } = await admin
+    .schema('auth')
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .single()
+
+  if (existingUser) {
+    const { error } = await admin.auth.admin.updateUserById(existingUser.id, { password })
+    if (error) {
+      redirect(`/dashboard?account_error=${encodeURIComponent(error.message)}`)
+    }
+  } else {
+    const { error } = await supabase.auth.updateUser({ email, password })
+    if (error) {
+      redirect(`/dashboard?account_error=${encodeURIComponent(error.message)}`)
+    }
   }
 
   redirect('/dashboard?account_created=true')
