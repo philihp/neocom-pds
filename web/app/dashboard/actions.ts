@@ -98,7 +98,7 @@ export const completeAccount = async (formData: FormData) => {
     .eq('email', email)
     .single()
 
-  console.log({ existingUser })
+  console.log({ email, existingUser })
 
   if (existingUser) {
     const { error } = await admin.auth.admin.updateUserById(existingUser.id, { password })
