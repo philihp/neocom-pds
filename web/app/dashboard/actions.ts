@@ -72,11 +72,15 @@ export const completeAccount = async (formData: FormData) => {
   if (!accountRes.ok) {
     redirect('/dashboard?account_error=Could+not+verify+EVE+binding')
   }
+
   const account = (await accountRes.json()) as {
     bound: boolean
     characterId?: number
     characterName?: string
   }
+
+  console.log({ user, session, pdsUrl, account })
+
   if (!account.bound || !account.characterId || !account.characterName) {
     redirect('/dashboard?account_error=Link+your+EVE+character+first')
   }
