@@ -14,12 +14,14 @@ const toAsciiLower: (s: string) => string = R.pipe(
   (s: string) => s.normalize('NFKD').replace(/[̀-ͯ]/g, ''),
 )
 
+const removeApostrophes: (s: string) => string = R.replace(/['']/g, '')
 const replaceInvalid: (s: string) => string = R.replace(/[^a-z0-9]+/g, '-')
 const trimHyphens: (s: string) => string = R.replace(/^-+|-+$/g, '')
 const truncate63: (s: string) => string = R.take(63) as (s: string) => string
 
 export const slugifyCharacterName: (name: string) => string = R.pipe(
   toAsciiLower,
+  removeApostrophes,
   replaceInvalid,
   trimHyphens,
   truncate63,
