@@ -59,18 +59,17 @@ export default async function LandingPage({
 
   return (
     <main>
-      <h1>Edencom Social</h1>
+      <h1>Edencom Social Link</h1>
+
+      <p>
+        New Eden citizens with Edencom social credentials may use this PDS to connect to
+        AT Protocol clients like BlueSky.
+      </p>
 
       {!user && (
-        <>
-          <p>
-            AT Protocol capsuleer identity registery. The identities of New Eden citizens
-            have been validated by the edencom.link PDS.
-          </p>
-          <form action={startBinding}>
-            <button type="submit">Connect</button>
-          </form>
-        </>
+        <form action={startBinding}>
+          <button type="submit">Connect</button>
+        </form>
       )}
 
       {user && user.is_anonymous && (

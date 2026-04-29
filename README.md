@@ -1,88 +1,202 @@
-# eve-pds
+# Edencom Social
 
-An [ATProto](https://atproto.com) Personal Data Server that uses EVE Online
-SSO as its sole authentication method, and keeps each user's EVE refresh
-token on file so the service can make authenticated ESI calls on their
-behalf. One EVE character = one atproto account.
+> "CONCORD has authorized this PDS. Your compliance is mandatory."
+> — nobody at CONCORD, actually
 
-Built as a wrapper around `@atproto/pds` — the stock PDS runs embedded,
-and this service mounts the EVE SSO flow plus ESI call paths on top.
+An [ATProto](https://atproto.com) Personal Data Server for capsuleers who have
+decided that New Eden's local channels aren't enough and they'd like to yell
+into the Bluesky void as their immortal pod-piloting alter ego.
 
-## Flow
+One EVE character = one Bluesky account. That's it. That's the deal. CCP is
+the identity provider now, whether they intended to be or not.
+
+---
+
+## What This Is
+
+You authenticate with EVE Online SSO. We take your character, slugify your
+name into a handle (sorry, Aaäa Aaäson — you're getting the numeric suffix),
+spin up an ATProto account on the embedded PDS, slap your portrait on it, and
+hand you credentials you can actually use to log into Bluesky.
+
+Your EVE character *is* your Bluesky account. Your birth year is offset by
+1898 years so your Bluesky profile shows when you were born in New Eden
+instead of whenever CCP's servers first saw you. This is the kind of
+attention to detail you get when a game has 20 years of lore to work with.
+
+The whole thing is two services bolted together with express middleware and
+a handful of SQLite databases:
+
+- **`src/`** — the PDS backend. Runs `@atproto/pds` embedded, wraps it with
+  EVE SSO routes, ESI calls, and enough Supabase auth plumbing to let the
+  web frontend talk to it securely.
+- **`web/`** — a Next.js frontend. You log in, link your character, set a
+  password, and get told which credentials to plug into whatever Bluesky
+  client you prefer.
+
+---
+
+## Architecture
 
 ```
-    /eve/login                /eve/callback                 /eve/me/ship
-        │                          │                              │
-        ▼                          ▼                              ▼
-  redirect to CCP         exchange code + JWT           decode atproto JWT
-  with PKCE S256          verify via JWKS                   ↓
-  + random state             ↓                          look up character
-        │                 create-or-resolve                  ↓
-        ▼                 atproto account                refresh EVE access
-  user authenticates         ↓                          token if stale
-  at login.eveonline.com  encrypt + store EVE              ↓
-        │                 refresh token                  GET esi.evetech.net
-        │                    ↓                             ↓
-        └────────────────▶ return atproto          respond with ship data
-                           session JSON            + cache expires/etag
+  browser                  web (Next.js)              PDS backend (Express)
+     │                          │                              │
+     │  sign up / log in        │                              │
+     │─────────────────────────▶│  Supabase anon session       │
+     │                          │─────────────────────────────▶│ POST /eve/start-binding
+     │◀─────────────────────────│              { url: <EVE SSO redirect> }
+     │                          │                              │
+     │  redirect to EVE SSO ────────────────────────────────────────────▶ login.eveonline.com
+     │◀──────────────────────────────────────────────────────────────── GET /eve/callback
+     │                          │                              │
+     │                          │              exchange code, verify JWT
+     │                          │              create/resolve ATProto account
+     │                          │              encrypt + store EVE tokens
+     │                          │              bind Supabase user to character
+     │                          │                              │
+     │  redirect to web ────────────────────────────────────────▶│
+     │                          │  set password, finalize      │
+     │─────────────────────────▶│                              │
+     │                          │  POST /eve/transfer-binding  │
+     │                          │─────────────────────────────▶│ (anon → real Supabase user)
+     │                          │                              │
+     │ done. go login to bsky.  │                              │
 ```
 
-## What's stored for each character
+After onboarding your handle resolves via wildcard DNS — Bluesky fetches
+`https://<yourhandle.pds-hostname>/.well-known/atproto-did`, we serve the
+bare DID back, everybody's happy.
 
-Two side tables, colocated with the PDS data dir, completely separate
-from the PDS's own account DB:
+---
 
-- `character_account` — `character_id → (did, handle, owner)`. The `owner`
-  is EVE's opaque hash that changes when a character is transferred; used
-  to block stolen-character takeovers.
-- `eve_token` — encrypted access + refresh tokens, scope list, expiry,
-  invalidation marker. AES-256-GCM with a 32-byte key from
-  `EVE_TOKEN_ENCRYPTION_KEY` (rotating the key locks every user out
-  until they re-authenticate).
+## What Gets Stored
 
-Refresh tokens **rotate** — EVE's v2 endpoint may return a new refresh
-token on every call, and the old one is immediately invalidated. The
-token store writes the new token to disk *before* the ESI client returns
-the new access token to the caller. If the write fails, we surface the
-error and don't expose the new tokens, so the old refresh token (which
-may or may not still be valid) remains the last written state.
+Three side databases alongside the PDS's own data dir:
 
-## Scopes
+| DB | What's in it |
+|----|-------------|
+| `eve-characters.sqlite` | `character_id → (did, handle, owner, name)`. The `owner` hash detects Character Bazaar transfers. If someone buys your character they don't get your Bluesky repo — they get a 403 and a strongly-worded error message. |
+| `eve-tokens.sqlite` | Encrypted EVE access + refresh tokens. AES-256-GCM. Rotating `EVE_TOKEN_ENCRYPTION_KEY` logs everyone out simultaneously, which is a great way to clear a room. |
+| `users.sqlite` | Supabase user ↔ character binding. This is how the web frontend knows which portrait to show you. |
 
-Default `EVE_SCOPES=publicData` gives identity only — enough to create
-and log into accounts, nothing else. To use the `/eve/me/ship` demo
-endpoint, add `esi-location.read_ship_type.v1`:
+Refresh tokens rotate — EVE's v2 endpoint may return a new refresh token on
+every use and immediately invalidate the old one. The token store writes the
+new token before surfacing the new access token to the caller. If the write
+fails, you get an error, not a silently broken state. This was not an
+accident.
+
+---
+
+## Flow Details
+
+### First login (new character)
+
+1. `/eve/start-binding` — frontend calls this with a Supabase bearer token.
+   We generate a PKCE verifier + state, stash them in memory (10-minute TTL),
+   and return the EVE SSO URL.
+2. User authorizes at `login.eveonline.com`.
+3. `/eve/callback` — CCP sends `code` + `state` back. We exchange for tokens,
+   verify the JWT via CCP's JWKS endpoint, and provision an ATProto account
+   if one doesn't exist yet. Portrait gets fetched from EVE's image server and
+   uploaded to the PDS blob store. EVE tokens get encrypted and stored.
+4. Supabase anon session gets bound to the character. User returns to the web
+   app, sets a password, and we upgrade the anon session to a real one.
+
+### Re-login (existing character)
+
+Same SSO flow, but instead of creating an account we call
+`com.atproto.admin.updateAccountPassword` with a freshly-generated random
+password, then immediately log in with it. The random password is discarded.
+There is no stored password. This is intentional and not a bug.
+
+### Handle changes
+
+`/eve/start-handle-change` kicks off a fresh SSO round-trip to confirm you
+still own the character, then calls `com.atproto.identity.updateHandle` on
+your behalf. You can't change your handle via a direct ATProto call — we
+block `com.atproto.identity.updateHandle` from external clients because
+otherwise someone could just... ask us to change it without proving anything.
+
+### Logging in from a native ATProto client (e.g. the Bluesky app)
+
+`POST /xrpc/com.atproto.server.createSession` is intercepted. We look up your
+handle/DID, find the Supabase account bound to it, fetch your email, validate
+your password against Supabase, then do the admin password-reset trick to mint
+a fresh session. Loopback calls (from the PDS itself during provisioning) skip
+all of this and fall through to the native handler.
+
+---
+
+## EVE Scopes
+
+`publicData` is the minimum — enough to establish identity, nothing else.
+
+To use the `/eve/me/ship` debug endpoint (returns your current ship type
+via ESI), add:
 
 ```
 EVE_SCOPES=publicData esi-location.read_ship_type.v1
 ```
 
-Existing users must re-auth at `/eve/login` to grant new scopes.
-`/eve/me/ship` will return `403` with a specific hint message if the
-scope is missing.
+Existing users need to re-auth at `/eve/login` to grant new scopes. If the
+scope is missing, you get a `403` with a hint instead of a silent failure.
 
-## ESI politeness
+---
 
-The client respects everything CCP asks for:
+## ESI Politeness
 
-- `User-Agent: eve-pds/0.1.0 (<your-email>; +https://github.com/) ...`
-  built from `EVE_CONTACT_EMAIL`. This is required, not optional.
-- `X-ESI-Error-Limit-Remain` / `X-ESI-Error-Limit-Reset` tracked
-  process-wide (error limit is per-IP, so one shared state is correct).
-  Calls are refused before hitting 0 remaining.
-- `420` responses park the window until reset.
-- `Expires` and `Last-Modified` headers are returned to callers in the
-  response envelope so they can schedule appropriately. We do not yet
-  cache on our side — caller responsibility.
-- `If-None-Match` / `304` supported via optional `etag` param.
+We do not want to be banned by CCP. To that end:
 
-## Character transfers
+- `User-Agent` is set to include your `EVE_CONTACT_EMAIL`. CCP requires this.
+  It is not optional. Please fill it in.
+- `X-ESI-Error-Limit-Remain` / `X-ESI-Error-Limit-Reset` are tracked
+  process-wide (the limit is per-IP, so one shared counter is correct).
+  Calls are refused before the limit hits 0.
+- `420` responses park the call until the reset window expires.
+- `Expires` and `Last-Modified` from ESI are forwarded to callers so they
+  can schedule their own retries appropriately.
 
-EVE characters can be sold on the Character Bazaar. The SSO JWT's
-`owner` claim changes when this happens. On re-auth, if the stored
-`owner` differs from the new one, we **refuse** to issue a session.
-The previous owner's atproto repo is not handed to the new owner.
-An admin can unlock this manually via direct DB access.
+---
+
+## Character Transfers
+
+EVE characters can be sold on the Character Bazaar. The `owner` hash in the
+SSO JWT changes when this happens. If a re-auth shows a new owner, we refuse
+to issue a session. The previous owner's ATProto repo is not transferred.
+
+To unlock a transferred character, an admin must update the `owner` column
+directly in `eve-characters.sqlite`. There is no automated path for this
+because automated paths are how you get scammed.
+
+---
+
+## File Layout
+
+```
+src/
+  index.ts            entry, boots PDS + mounts all routers
+  config.ts           env parsing, encryption key validation
+  identity.ts         re-exports from @edencom/character-slug (handle slugging)
+  eve-sso.ts          PKCE, token exchange, token refresh, JWKS JWT verify
+  crypto.ts           AES-256-GCM token encryption at rest
+  state-store.ts      in-memory OAuth state (TTL 10 min)
+  character-store.ts  sqlite: character_id ↔ DID/handle/owner
+  token-store.ts      sqlite (encrypted): EVE access + refresh tokens
+  user-store.ts       sqlite: Supabase user ↔ character binding
+  provision.ts        create-or-resolve ATProto account, set EVE profile
+  esi-client.ts       ESI fetcher: auto-refresh, error-limit, cache headers
+  supabase-auth.ts    Supabase bearer token validation + email/password checks
+  routes.ts           all HTTP handlers
+
+web/
+  app/page.tsx        landing + onboarding UI (Next.js, Supabase auth)
+  app/actions.ts      server actions: startBinding, finishBinding, cancelBinding
+
+packages/
+  character-slug/     shared handle-slugification logic (workspace package)
+```
+
+---
 
 ## Setup
 
@@ -91,64 +205,49 @@ An admin can unlock this manually via direct DB access.
    - Callback URL: `https://your-pds.example.com/eve/callback`
    - Scopes: at minimum `publicData`
 
-2. Copy `.env.example` → `.env`, fill in every `REPLACE_ME`.
-   ```
-   openssl rand --hex 16        # for PDS_JWT_SECRET, PDS_ADMIN_PASSWORD,
-                                # PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX
-   openssl rand -base64 32      # for EVE_TOKEN_ENCRYPTION_KEY
+2. Copy `.env.example` → `.env` and fill in every `REPLACE_ME`.
+
+   ```bash
+   openssl rand --hex 16      # PDS_JWT_SECRET, PDS_ADMIN_PASSWORD,
+                              # PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX
+   openssl rand -base64 32    # EVE_TOKEN_ENCRYPTION_KEY
    ```
 
-3. Install and run:
-   ```
+3. Set up a Supabase project. The web app needs `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
+   The PDS backend needs `SUPABASE_URL` and `SUPABASE_SECRET_KEY`.
+
+4. Install and run:
+
+   ```bash
    pnpm install
    pnpm build
    pnpm start
    ```
 
-4. TLS-terminating reverse proxy in front (nginx/caddy/cloudflared),
-   serving `PDS_HOSTNAME` on :443 to `PDS_PORT`.
+5. Put a TLS-terminating reverse proxy in front (nginx, Caddy, Cloudflare).
+   `PDS_HOSTNAME` must be on port 443. Wildcard DNS (`*.pds-hostname`) pointing
+   at the server enables subdomain handle verification.
 
-## Testing
+6. Deploy `web/` to Vercel or wherever Next.js apps go to live. Set
+   `PDS_API_URL` to point at your PDS backend.
 
-```bash
-# Kick off the SSO flow (browser)
-open https://your-pds.example.com/eve/login
+---
 
-# After callback returns JSON, save the accessJwt and hit:
-curl -H "Authorization: Bearer $ATP_ACCESS_JWT" \
-     https://your-pds.example.com/eve/me/ship
-```
+## Known Gaps
 
-## File layout
-
-```
-pds/
-  index.ts            entry point, boots PDS + mounts routes
-  config.ts           env parsing + encryption key validation
-  identity.ts         EVE character types + handle slugification
-  eve-sso.ts          OAuth client: PKCE, token exchange, refresh, JWT verify
-  crypto.ts           AES-256-GCM envelope for tokens at rest
-  state-store.ts      in-memory OAuth state (TTL 10m)
-  character-store.ts  sqlite: character_id <-> DID mapping
-  token-store.ts      sqlite (encrypted): EVE access + refresh tokens
-  provision.ts        create-or-resolve atproto account + persist EVE tokens
-  esi-client.ts       ESI fetcher: auto-refresh, error-limit, cache headers
-  routes.ts           /eve/login, /eve/callback, /eve/me/ship + blockers
-```
-
-## Known gaps
-
-- **`/eve/me/ship` decodes but does not verify the atproto JWT signature.**
-  Fine for read-only data the user could fetch from ESI directly, not
-  fine for anything that writes. Hook into the PDS's own auth verifier
-  before adding write-ish endpoints.
-- **No background polling.** Token storage is in place so polling can be
-  added without schema changes — add a scheduler module that reads from
-  `eve_token`, calls `callEsi`, writes to a new state table.
-- **No OAuth-provider integration for modern atproto clients.** Bluesky
-  app etc. will use legacy session tokens via the returned JSON. For
-  first-class OAuth support, the PDS's own authorize endpoint needs to
-  delegate to EVE.
-- **Key rotation for `EVE_TOKEN_ENCRYPTION_KEY` is not implemented.**
-  Rotating = everyone re-auths. A future version could dual-key during a
-  migration window.
+- **`/eve/me/ship` does not verify the ATProto JWT signature.** Fine for
+  read-only ESI data the user could fetch themselves. Not fine before adding
+  anything write-adjacent. The PDS's own auth verifier needs to be wired in
+  first.
+- **No background ESI polling.** The token storage schema supports it — add a
+  scheduler that reads from `eve_token`, calls `callEsi`, writes to a new
+  state table. Nobody has done this yet.
+- **No first-class ATProto OAuth.** The Bluesky app uses legacy session
+  tokens via the intercepted `createSession` endpoint. First-class OAuth would
+  require the PDS's own authorize endpoint to delegate to EVE SSO. This is on
+  the list somewhere between "would be nice" and "maybe someday."
+- **`EVE_TOKEN_ENCRYPTION_KEY` rotation is not implemented.** Rotating the
+  key invalidates all stored tokens simultaneously. A migration window with
+  dual-key support would fix this. For now: don't rotate the key unless you
+  enjoy support requests.
