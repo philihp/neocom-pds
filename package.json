@@ -8,7 +8,8 @@
     "build": "pnpm --filter @edencom/character-slug build && tsc",
     "start": "node --enable-source-maps dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "purge-anon-users": "tsx src/scripts/purge-anon-users.ts"
   },
   "dependencies": {
     "@edencom/character-slug": "workspace:*",
