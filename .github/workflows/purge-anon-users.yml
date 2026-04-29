@@ -2,7 +2,7 @@ name: purge-anon-users
 
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 12 1 1 *'
   workflow_dispatch:
 
 jobs:
