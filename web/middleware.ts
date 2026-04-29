@@ -26,7 +26,7 @@ export const middleware = async (request: NextRequest) => {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  console.log('[middleware]', { user })
+  console.log('[middleware]', JSON.stringify(user, undefined, 2))
   
   return supabaseResponse
 }

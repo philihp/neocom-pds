@@ -38,6 +38,8 @@ export default async function LandingPage({
     account_error?: string
   }>
 }) {
+   const params = await searchParams
+
   const supabase = await createClient()
   const {
     data: { user },
@@ -66,11 +68,12 @@ export default async function LandingPage({
           </form>
         </>
       )}
-      {user && (
+
+      {user && user.is_anonymous && (
         <>
           <fieldset>
-            <legend>Success</legend>The following reservation has been created, but will
-            remain unclaimed until a password is set.
+            <legend>Success</legend>The following username has been reserved. Set a
+            password to claim it.
           </fieldset>
           <dl>
             <var>
@@ -81,13 +84,13 @@ export default async function LandingPage({
                 height={128}
               />
             </var>
+            <dt>Host</dt>
+            <dd>
+              <code>{pdsUrl}</code>
+            </dd>
             <dt>Handle</dt>
             <dd>
               <var>{account?.handle}</var>
-            </dd>
-            <dt>DID</dt>
-            <dd>
-              <code>{account?.did}</code>
             </dd>
           </dl>
           <form action={finishBinding}>
@@ -105,27 +108,48 @@ export default async function LandingPage({
                 />
               </label>
             </p>
-            <p>
-              <label htmlFor="confirm">
-                Confirm Password
-                <br />
-                <input
-                  id="confirm"
-                  name="confirm"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  minLength={8}
-                />
-              </label>
-            </p>
             <button type="submit">Set a password</button>
           </form>
           <p></p>
-          <form action={cancelBinding}>
-            <button type="submit">Cancel</button>
-          </form>
         </>
+      )}
+
+      {user && !user.is_anonymous && (
+        <>
+          <dl>
+            <var>
+              <Image
+                src={`https://images.evetech.net/characters/${account.characterId}/portrait?size=128`}
+                alt={account?.handle ?? 'Character portrait'}
+                width={128}
+                height={128}
+              />
+            </var>
+            <dt>Host</dt>
+            <dd>
+              <code>{pdsUrl}</code>
+            </dd>
+            <dt>Username</dt>
+            <dd>
+              <var>
+                {account?.did ? (
+                  <Link href={`https://atproto.at/uri/at://${account?.did}`}>
+                    {account?.handle}
+                  </Link>
+                ) : (
+                  <>{account?.handle}</>
+                )}
+              </var>
+            </dd>
+          </dl>
+          You can now login to BlueSky or any ATProto client with this handle.
+        </>
+      )}
+
+      {user && (
+        <form action={cancelBinding}>
+          <button type="submit">Release Link</button>
+        </form>
       )}
 
       <pre>{JSON.stringify({ user, session, account }, undefined, 2)}</pre>

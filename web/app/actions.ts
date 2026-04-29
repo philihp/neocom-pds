@@ -48,8 +48,7 @@ export const cancelBinding = async () => {
 }
 
 export const finishBinding = async (formData: FormData) => {
-  const password = formData.get('password')
-  const confirm = formData.get('confirm')
+  const password = (formData.get('password') as string) ?? ''
 
   const supabase = await createClient()
   const {
@@ -109,5 +108,5 @@ export const finishBinding = async (formData: FormData) => {
     }
   }
 
-  redirect('/?account_created=true')
+  redirect('/')
 }
