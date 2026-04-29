@@ -254,6 +254,46 @@ const handleCallback =
     }
   }
 
+// --- POST /eve/transfer-binding ---------------------------------------------
+// Called by the web app when an existing Supabase user is detected after EVE
+// OAuth. The anon user's token proves ownership of the just-bound character;
+// we re-map that binding to the existing (permanent) Supabase user ID.
+
+interface TransferBindingBody {
+  readonly targetUserId?: unknown
+}
+
+const handleTransferBinding =
+  (deps: RouterDeps) =>
+  async (req: Request, res: Response): Promise<void> => {
+    const anonUserId = await extractSupabaseUser(
+      req.headers.authorization,
+      deps.config.supabaseUrl,
+      deps.config.supabaseSecretKey,
+    )
+    if (!anonUserId) {
+      res.status(401).json({ error: "Missing or invalid authorization" })
+      return
+    }
+
+    const body = req.body as TransferBindingBody
+    const targetUserId =
+      typeof body.targetUserId === "string" ? body.targetUserId.trim() : null
+    if (!targetUserId) {
+      res.status(400).json({ error: "InvalidRequest", message: "targetUserId is required" })
+      return
+    }
+
+    const binding = deps.users.findByUserId(anonUserId)
+    if (!binding) {
+      res.status(404).json({ error: "NotBound", message: "No EVE character bound to this session" })
+      return
+    }
+
+    deps.users.bind(targetUserId, binding.characterId)
+    res.json({ ok: true })
+  }
+
 // --- GET /api/account -------------------------------------------------------
 // Returns the EVE character bound to the authenticated Supabase user.
 
@@ -462,7 +502,6 @@ const handleCreateSession =
       deps.config.supabaseUrl,
       deps.config.supabaseAnonKey,
     )
-    console.log(`[createSession] password valid=${valid}`)
     if (!valid) {
       res
         .status(401)
@@ -521,6 +560,11 @@ export const buildEveRouter = (deps: RouterDeps): Router => {
   router.get("/.well-known/atproto-did", handleAtprotoWellKnown(deps))
   router.get("/eve/login", handleLogin(deps))
   router.post("/eve/start-binding", express.json(), handleStartBinding(deps))
+  router.post(
+    "/eve/transfer-binding",
+    express.json(),
+    handleTransferBinding(deps),
+  )
   router.post(
     "/eve/start-handle-change",
     express.json(),

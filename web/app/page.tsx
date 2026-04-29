@@ -68,7 +68,7 @@ export default async function LandingPage({
             have been validated by the edencom.link PDS.
           </p>
           <form action={startBinding}>
-            <button type="submit">Link to EVE Online</button>
+            <button type="submit">Connect</button>
           </form>
         </>
       )}
@@ -84,13 +84,19 @@ export default async function LandingPage({
               height={128}
             />
             <dl>
-              <dt>Hosting Provider</dt>
+              <dt>Host</dt>
               <dd>
                 <code>{pdsUrl}</code>
               </dd>
-              <dt>Handle</dt>
+              <dt>Username</dt>
               <dd>
-                <var>{account?.handle}</var>
+                {account?.did ? (
+                  <Link href={`https://atproto.at/uri/at://${account?.did}`}>
+                    {account?.handle}
+                  </Link>
+                ) : (
+                  <>{account?.handle}</>
+                )}
               </dd>
               <dt>Password</dt>
               <dd>
@@ -110,28 +116,26 @@ export default async function LandingPage({
               </dd>
             </dl>
           </fieldset>
-          <p></p>
         </>
       )}
 
       {user && !user.is_anonymous && (
         <>
-          <dl>
-            <var>
-              <Image
-                src={`https://images.evetech.net/characters/${account.characterId}/portrait?size=128`}
-                alt={account?.handle ?? 'Character portrait'}
-                width={128}
-                height={128}
-              />
-            </var>
-            <dt>Host</dt>
-            <dd>
-              <code>{pdsUrl}</code>
-            </dd>
-            <dt>Username</dt>
-            <dd>
-              <var>
+          <fieldset>
+            <legend>Link</legend>
+            <Image
+              src={`https://images.evetech.net/characters/${account.characterId}/portrait?size=128`}
+              alt={account?.handle ?? 'Character portrait'}
+              width={128}
+              height={128}
+            />
+            <dl>
+              <dt>Host</dt>
+              <dd>
+                <code>{pdsUrl}</code>
+              </dd>
+              <dt>Username</dt>
+              <dd>
                 {account?.did ? (
                   <Link href={`https://atproto.at/uri/at://${account?.did}`}>
                     {account?.handle}
@@ -139,20 +143,26 @@ export default async function LandingPage({
                 ) : (
                   <>{account?.handle}</>
                 )}
-              </var>
-            </dd>
-          </dl>
-          <p>You can now login to BlueSky or any ATProto client with this handle.</p>
+              </dd>
+              <dt>Password</dt>
+              <dd>
+                <var>************</var>
+              </dd>
+            </dl>
+            <p>You can now login to BlueSky with these credentials.</p>
+          </fieldset>
         </>
       )}
 
+      <p></p>
+
       {user && (
         <form action={cancelBinding}>
-          <button type="submit">Release Link</button>
+          <button type="submit">Disconnect</button>
         </form>
       )}
 
-      <pre>{JSON.stringify({ user, session, account }, undefined, 2)}</pre>
+      {/* <pre>{JSON.stringify({ user, session, account }, undefined, 2)}</pre> */}
     </main>
   )
 }

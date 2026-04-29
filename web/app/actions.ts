@@ -75,9 +75,9 @@ export const finishBinding = async (formData: FormData) => {
     bound: boolean
     characterId?: number
     characterName?: string
+    handle?: string
+    did?: string
   }
-
-  console.log({ user, session, pdsUrl, account })
 
   if (!account.bound || !account.characterId || !account.characterName) {
     redirect('/?account_error=Link+your+EVE+character+first')
@@ -85,22 +85,51 @@ export const finishBinding = async (formData: FormData) => {
 
   const handle = slugifyCharacterName(account.characterName)
   const email = `${handle}@${serviceHandleDomains}`
+  const characterMeta = {
+    characterId: account.characterId,
+    characterName: account.characterName,
+    handle: account.handle ?? handle,
+    did: account.did,
+  }
 
   const admin = createAdminClient()
-  const { data: existingUser, ...adminRes } = await admin.rpc('get_user_id_by_email', {
+  const { data: existingUser } = await admin.rpc('get_user_id_by_email', {
     user_email: email,
   })
 
-  console.log({ email, data: existingUser, ...adminRes })
-
   if (existingUser) {
-    const { error } = await admin.auth.admin.updateUserById(existingUser, { password })
-    console.error(error)
-    if (error) {
-      redirect(`/?account_error=${encodeURIComponent(error.message)}`)
+    const { error: updateError } = await admin.auth.admin.updateUserById(existingUser, {
+      password,
+      user_metadata: characterMeta,
+    })
+    if (updateError) {
+      redirect(`/?account_error=${encodeURIComponent(updateError.message)}`)
+    }
+    const transferRes = await fetch(`${pdsUrl}/eve/transfer-binding`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ targetUserId: existingUser }),
+    })
+    if (!transferRes.ok) {
+      const text = await transferRes.text()
+      redirect(`/?account_error=${encodeURIComponent(`Transfer failed: ${text}`)}`)
+    }
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    if (signInError) {
+      redirect(`/?account_error=${encodeURIComponent(signInError.message)}`)
     }
   } else {
-    const { error } = await supabase.auth.updateUser({ email, password })
+    const { error } = await supabase.auth.updateUser({
+      email,
+      password,
+      data: characterMeta,
+    })
     if (error) {
       redirect(`/?account_error=${encodeURIComponent(error.message)}`)
     }
