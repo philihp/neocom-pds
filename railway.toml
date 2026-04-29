@@ -4,6 +4,6 @@ builder = "nixpacks"
 [deploy]
 startCommand = "node --enable-source-maps dist/index.js"
 healthcheckPath = "/xrpc/_health"
-healthcheckTimeout = 120
+healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
