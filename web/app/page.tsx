@@ -73,6 +73,7 @@ export default async function LandingPage() {
               </dd>
             </dl>
           </fieldset>
+          <p>Account username reserved, please set a password.</p>
         </>
       )}
 
@@ -99,23 +100,19 @@ export default async function LandingPage() {
               </dd>
               <dt>Password</dt>
               <dd>
-                <var>************</var>
+                <var>**************************</var>
               </dd>
             </dl>
           </fieldset>
           <p>
-            You can now connect with these credentials. Specify this host as a custom
-            hosting provider in apps like <Link href="http://bsky.app">Bluesky</Link>.
+            Your New Eden identity is secured. Specify this host as a custom hosting
+            provider to use it when connecting to apps like{' '}
+            <Link href="http://bsky.app">Bluesky</Link>.
           </p>
         </>
       )}
 
       <hr />
-
-      <p>
-        Claim your Edencom social credentials with your New Eden identity for{' '}
-        <Link href="https://atproto.com">AT Proto</Link> clients like Bluesky.
-      </p>
 
       {user && (
         <form action={cancelBinding}>
@@ -124,9 +121,15 @@ export default async function LandingPage() {
       )}
 
       {!user && (
-        <form action={startBinding}>
-          <button type="submit">Connect</button>
-        </form>
+        <>
+          <p>
+            Claim your Edencom social credentials with your New Eden identity for{' '}
+            <Link href="https://atproto.com">AT Proto</Link> clients like Bluesky.
+          </p>
+          <form action={startBinding}>
+            <button type="submit">Connect</button>
+          </form>
+        </>
       )}
 
       {/* <pre>{JSON.stringify({ user, session, account }, undefined, 2)}</pre> */}
