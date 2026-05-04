@@ -14,6 +14,7 @@ import {
   buildDebugRouter,
   RouterDeps,
 } from "./routes.js"
+import { startZkillBot } from "./zkill-bot.js"
 
 const main = async (): Promise<void> => {
   const appCfg = loadConfig()
@@ -66,6 +67,17 @@ const main = async (): Promise<void> => {
   await pds.start()
   console.log(`EVE-gated PDS listening on :${appCfg.port}`)
 
+  let stopBot: (() => void) | undefined
+  if (appCfg.bot) {
+    stopBot = await startZkillBot({
+      admin: { pdsUrl, adminPassword },
+      characters,
+      cfg: appCfg.bot,
+      dataDir,
+      serviceHandleDomains: appCfg.serviceHandleDomains,
+    })
+  }
+
   const certPath = process.env.PDS_TLS_CERT_PATH
   const keyPath = process.env.PDS_TLS_KEY_PATH
   const httpsPort = Number(process.env.PDS_HTTPS_PORT ?? 2584)
@@ -90,6 +102,7 @@ const main = async (): Promise<void> => {
 
   const shutdown = async (): Promise<void> => {
     console.log("Shutting down...")
+    stopBot?.()
     characters.close()
     tokens.close()
     users.close()

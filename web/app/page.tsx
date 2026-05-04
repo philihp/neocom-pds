@@ -43,96 +43,79 @@ export default async function LandingPage() {
   const account = session && (await fetchAccount(session.access_token))
 
   return (
-    <main>
-      <h1>Edencom Social Link</h1>
+    <>
+      <main>
+        <section>
+          <h1>Edencom Social Link</h1>
 
-      {user && user.is_anonymous && (
-        <>
-          <fieldset>
-            <legend>Link</legend>
-            <Image
-              src={`https://images.evetech.net/characters/${account!.characterId}/portrait?size=256`}
-              alt={account?.handle ?? 'Character portrait'}
-              width={128}
-              height={128}
-            />
-            <dl>
-              <dt>Host</dt>
-              <dd>
-                <code>{pdsUrl}</code>
-              </dd>
-              <dt>Username</dt>
-              <dd>
-                <Link href={`https://bsky.app/profile/${account?.handle}`}>
-                  {account?.handle}
-                </Link>
-              </dd>
-              <dt>Password</dt>
-              <dd>
-                <PasswordForm />
-              </dd>
-            </dl>
-          </fieldset>
-          <p>Account username reserved, please set a password.</p>
-        </>
-      )}
+          {user && user.is_anonymous && (
+            <fieldset>
+              <legend>Handle Selection</legend>
+              <PasswordForm
+                characterId={account!.characterId!}
+                handle={account!.handle!}
+                pdsUrl={pdsUrl}
+              />
+            </fieldset>
+          )}
 
-      {user && !user.is_anonymous && (
-        <>
-          <fieldset>
-            <legend>Link</legend>
-            <Image
-              src={`https://images.evetech.net/characters/${account!.characterId}/portrait?size=256`}
-              alt={account?.handle ?? 'Character portrait'}
-              width={128}
-              height={128}
-            />
-            <dl>
-              <dt>Host</dt>
-              <dd>
-                <code>{pdsUrl}</code>
-              </dd>
-              <dt>Username</dt>
-              <dd>
-                <Link href={`https://bsky.app/profile/${account?.handle}`}>
-                  {account?.handle}
-                </Link>
-              </dd>
-              <dt>Password</dt>
-              <dd>
-                <var>**************************</var>
-              </dd>
-            </dl>
-          </fieldset>
-          <p>
-            Your New Eden identity is secured. Specify this host as a custom hosting
-            provider to use it when connecting to apps like{' '}
-            <Link href="http://bsky.app">Bluesky</Link>.
-          </p>
-        </>
-      )}
+          {user && !user.is_anonymous && (
+            <>
+              <fieldset>
+                <legend>Link</legend>
+                <Image
+                  src={`https://images.evetech.net/characters/${account!.characterId}/portrait?size=256`}
+                  alt={account?.handle ?? 'Character portrait'}
+                  width={128}
+                  height={128}
+                />
+                <dl>
+                  <dt>Host</dt>
+                  <dd>
+                    <code>{pdsUrl}</code>
+                  </dd>
+                  <dt>Username</dt>
+                  <dd>
+                    <Link href={`https://bsky.app/profile/${account?.handle}`}>
+                      {account?.handle}
+                    </Link>
+                  </dd>
+                  <dt>Password</dt>
+                  <dd>
+                    <var>**************************</var>
+                  </dd>
+                </dl>
+              </fieldset>
+              <p>
+                Your New Eden identity is secured. Specify this host as a custom hosting
+                provider to use it when connecting to apps like{' '}
+                <Link href="http://bsky.app">Bluesky</Link>.
+              </p>
+            </>
+          )}
 
-      <hr />
+          {!user && (
+            <>
+              <p>
+                Claim your Edencom social credentials with your New Eden identity for{' '}
+                <Link href="https://atproto.com">AT Proto</Link> clients like Bluesky.
+              </p>
+              <form action={startBinding}>
+                <button type="submit">Connect</button>
+              </form>
+            </>
+          )}
 
-      {user && (
-        <form action={cancelBinding}>
-          <button type="submit">Disconnect</button>
-        </form>
-      )}
-
-      {!user && (
-        <>
-          <p>
-            Claim your Edencom social credentials with your New Eden identity for{' '}
-            <Link href="https://atproto.com">AT Proto</Link> clients like Bluesky.
-          </p>
-          <form action={startBinding}>
-            <button type="submit">Connect</button>
+          {/* <pre>{JSON.stringify({ user, session, account }, undefined, 2)}</pre> */}
+        </section>
+        {user && (
+          <form action={cancelBinding}>
+            <button type="submit" className="secondary">
+              Disconnect
+            </button>
           </form>
-        </>
-      )}
-
-      {/* <pre>{JSON.stringify({ user, session, account }, undefined, 2)}</pre> */}
-    </main>
+        )}
+      </main>
+    </>
   )
 }

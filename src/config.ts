@@ -8,6 +8,13 @@ export interface EveConfig {
   readonly contactEmail: string
 }
 
+export interface BotConfig {
+  readonly botHandle: string
+  readonly filterCorpId?: number
+  readonly filterAllianceId?: number
+  readonly filterSystemId?: number
+}
+
 export interface AppConfig {
   readonly hostname: string
   readonly serviceHandleDomains: string
@@ -18,6 +25,7 @@ export interface AppConfig {
   readonly supabaseAnonKey: string
   readonly supabaseSecretKey: string
   readonly webAppUrl: string
+  readonly bot?: BotConfig
 }
 
 const required = (key: string): string => {
@@ -59,4 +67,18 @@ export const loadConfig = (): AppConfig => ({
   supabaseAnonKey: required("SUPABASE_ANON_KEY"),
   supabaseSecretKey: required("SUPABASE_SECRET_KEY"),
   webAppUrl: required("WEB_APP_URL"),
+  bot: process.env.ZKILL_BOT_ENABLED === "true"
+    ? {
+        botHandle: process.env.ZKILL_BOT_HANDLE ?? "zkillbot",
+        filterCorpId: process.env.ZKILL_FILTER_CORP_ID
+          ? Number(process.env.ZKILL_FILTER_CORP_ID)
+          : undefined,
+        filterAllianceId: process.env.ZKILL_FILTER_ALLIANCE_ID
+          ? Number(process.env.ZKILL_FILTER_ALLIANCE_ID)
+          : undefined,
+        filterSystemId: process.env.ZKILL_FILTER_SYSTEM_ID
+          ? Number(process.env.ZKILL_FILTER_SYSTEM_ID)
+          : undefined,
+      }
+    : undefined,
 })
